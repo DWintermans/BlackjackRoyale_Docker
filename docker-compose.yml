@@ -1,0 +1,109 @@
+services:
+  api:
+    build:
+      context: ../backend/BlackjackAPI
+      dockerfile: ./BlackjackAPI/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_SERVER: "db"
+      DB_USER: "root"
+      DB_PASSWORD: "tisFfjtNeJdRTbddvPgX7U6xi3uDrr"
+      DB_DATABASE: "blackjackroyale"
+      WS_URL: "http://+:5000/ws/"
+      JWT: "ah48MZ4amGS3VqakPxjsYSekeg3yar6MbirervAigfquZkcF8wSCS3VKTWMaQCMR8dSJh3McMCcoT59rUnTxqKoSyAELPRcdZVF9wtB8XxhUPpTQUA5nWoGVSfd8R4Go"
+      DB_TYPE: "mysql"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - e2e-network  
+
+  websocket:
+    build:
+      context: ../backend
+      dockerfile: ./BlackjackWebsocket/BlackjackWebsocket/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      DB_SERVER: "db"
+      DB_USER: "root"
+      DB_PASSWORD: "tisFfjtNeJdRTbddvPgX7U6xi3uDrr"
+      DB_DATABASE: "blackjackroyale"
+      WS_URL: "http://+:5000/ws/"
+      JWT: "ah48MZ4amGS3VqakPxjsYSekeg3yar6MbirervAigfquZkcF8wSCS3VKTWMaQCMR8dSJh3McMCcoT59rUnTxqKoSyAELPRcdZVF9wtB8XxhUPpTQUA5nWoGVSfd8R4Go"
+      DB_TYPE: "mysql"
+      ASPNETCORE_ENVIRONMENT: "Development" 
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - e2e-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ./Dockerfile
+    environment:
+       REACT_APP_API_URL: "http://api:8080"
+       REACT_APP_WS_URL: "ws://websocket:5000/ws/"
+    ports:
+      - "3000:80"
+    depends_on:
+      - api  
+    networks:
+      - e2e-network
+      
+  db:
+    image: mysql:latest
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: "tisFfjtNeJdRTbddvPgX7U6xi3uDrr"
+      MYSQL_DATABASE: "blackjackroyale"
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "db", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      retries: 5
+      timeout: 10s
+      start_period: 30s
+    networks:
+      - e2e-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: db              
+      PMA_USER: root               
+      PMA_PASSWORD: "tisFfjtNeJdRTbddvPgX7U6xi3uDrr"   
+    ports:
+      - "8081:80"                 
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - e2e-network    
+        
+  cypress:
+    image: cypress/included:12.0.0
+    volumes:
+      - ../frontend:/frontend  
+    depends_on:
+      - frontend
+    command: cypress run --config-file /frontend/cypress/e2e/cypress.config.js 
+    working_dir: /frontend  
+    networks:
+      - e2e-network
+
+volumes:
+  db_data:
+      
+networks:
+  e2e-network:
+    driver: bridge
+  
